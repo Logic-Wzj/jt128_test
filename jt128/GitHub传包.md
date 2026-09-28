@@ -12,28 +12,26 @@
 # 1) 整理成一个干净的本地仓库（自动排除上位机二进制、__pycache__、app/ 等）
 bash ~/jt128/port/push_to_github.sh --dir ~/jt128_repo --with-driver
 
-# 2) 浏览器新建一个**私有**仓库（例：jt128-test-kit）
-#    https://github.com/new   不要勾选 "Add a README file"
-#    含第三方驱动源码，建议私有
+# 2) 浏览器新建仓库（https://github.com/new，不要勾 "Add a README file"）
+#    本机用的仓库：https://github.com/Logic-Wzj/jt128_test （已建好、首次已推送）
 
-# 3) 推上去（把 <你> 换成你的用户名）
+# 3) 推上去
 cd ~/jt128_repo
-git remote add origin https://github.com/<你>/jt128-test-kit.git
+git remote add origin git@github.com:Logic-Wzj/jt128_test.git
+# ↑ 如果报 "远程 origin 已经存在"，就不用再加，改用：
+#   git remote set-url origin git@github.com:Logic-Wzj/jt128_test.git
+git remote -v          # 确认地址是 git@github.com:... 开头
 git push -u origin main
 ```
 
-第 3 步认证：密码框填 **PAT**（GitHub → Settings → Developer settings → Personal access tokens，勾 `repo`），不是账号密码。也可以先把公钥加到 GitHub 再用 SSH 地址：
+**认证不用 PAT**：本机 `~/.ssh/id_ed25519` 已经加到 GitHub 了（`ssh -T git@github.com` 会回 `Hi Logic-Wzj!`），所以用 `git@github.com:` 的 SSH 地址免密。只有走 HTTPS 地址（`https://...`）时才需要 PAT（Settings → Developer settings → Personal access tokens → 勾 `repo` → 生成后当密码用，只显示一次）。
 
-```bash
-ssh-keygen -t ed25519 -C "jt128"      # 一路回车
-cat ~/.ssh/id_ed25519.pub              # 贴到 https://github.com/settings/keys
-git remote set-url origin git@github.com:<你>/jt128-test-kit.git
-```
+> 本机到 GitHub 的连通性时不时抽风（校园网直连会被掐、Clash 时好时坏）：`curl https://github.com` 卡住或 TLS 被重置就换个时间/网络重试，SSH 通道相对稳。`git push` 卡住先 Ctrl-C，别反复重试到超时。
 
 ### 小电脑（4 步）
 
 ```bash
-git clone -b main https://github.com/<你>/jt128-test-kit.git jt128_test   # 目录叫 jt128_test 没问题
+git clone -b main git@github.com:Logic-Wzj/jt128_test.git jt128_test   # 目录叫 jt128_test 没问题
 cd jt128_test
 ./jt128/port/deps_check.sh            # 1. 依赖自检（应无 ❌）
 ./jt128/port/port_setup.sh "$PWD"     # 2. 部署：装驱动 + 编译 + 写 shell 入口
@@ -50,7 +48,7 @@ source ~/.bashrc                      # 3. 让 jt128 入口生效（zsh 用 sour
 
 ```bash
 bash ~/jt128/port/push_to_github.sh --dir ~/jt128_repo     # 不加 --with-driver
-cd ~/jt128_repo && git remote add origin https://github.com/<你>/jt128-test-kit.git && git push -u origin main
+cd ~/jt128_repo && git remote add origin git@github.com:Logic-Wzj/jt128_test.git && git push -u origin main
 ```
 
 小电脑步骤完全一样，只是 `port_setup.sh` 发现包里没有驱动源码时，会自己从禾赛官方克隆（固定 tag `v2.0.12`，BSD-3，LICENSE 随克隆保留），带 3 次重试；如果上次克隆中断留下缺 SDK 的坏目录，重跑会自动补齐。

@@ -186,10 +186,10 @@ ros2 launch ~/jt128/launch/jt128_nav_test.py
 ```bash
 # 桌面机
 bash ~/jt128/port/push_to_github.sh --dir ~/jt128_repo --with-driver
-cd ~/jt128_repo && git remote add origin https://github.com/<你>/jt128-test-kit.git && git push -u origin main
+cd ~/jt128_repo && git remote add origin git@github.com:Logic-Wzj/jt128_test.git && git push -u origin main
 
 # 小电脑
-git clone https://github.com/<你>/jt128-test-kit.git jt128_test && cd jt128_test
+git clone git@github.com:Logic-Wzj/jt128_test.git jt128_test && cd jt128_test
 ./jt128/port/deps_check.sh          # 依赖自检
 ./jt128/port/port_setup.sh "$PWD"   # 部署：驱动 + 编译 + shell 入口 + 修正 config.yaml
 source ~/.bashrc && ./jt128/launch.sh radar
