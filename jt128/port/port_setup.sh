@@ -185,6 +185,9 @@ else
 fi
 
 # bash：加一个 jt128 别名指向 launch.sh（launch.sh 是纯 bash，不依赖 zsh）
+if [ ! -f "$HOME/.bashrc" ]; then
+  touch "$HOME/.bashrc" && echo "新建了 ~/.bashrc（原来没有）"
+fi
 if [ -f "$HOME/.bashrc" ]; then
   if grep -q "jt128.*launch.sh" "$HOME/.bashrc" 2>/dev/null; then
     warn ".bashrc 里已有 jt128 别名，跳过"
