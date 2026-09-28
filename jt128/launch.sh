@@ -53,18 +53,29 @@ detect_distro() {
 DISTRO="$(detect_distro)"
 [ -n "${DISTRO:-}" ] || DISTRO="humble"
 
-# 网卡：优先 $JT128_IFACE，其次带 192.168.1.x 的网卡，其次默认路由网卡，最后第一块有线网卡
+# 有线网卡候选（排除 lo/docker/virbr/无线/Clash 的 Meta）
+list_wired() {
+  local i
+  for i in $(ls /sys/class/net 2>/dev/null); do
+    case "$i" in lo|docker*|virbr*|veth*|br-*|wl*|Meta) continue ;; esac
+    [ -e "/sys/class/net/$i/device" ] && echo "$i"
+  done
+}
+
+# 网卡：$JT128_IFACE → 带 192.168.1.x 的网卡 → 插着线的有线网卡 → 任意有线网卡 → 默认路由网卡
+# 注意：默认路由在笔记本上常常是无线网卡，雷达必须走有线口，所以有线优先于默认路由
 detect_iface() {
   local i
   if [ -n "${JT128_IFACE:-}" ]; then echo "$JT128_IFACE"; return; fi
   i="$(ip -o -4 addr show 2>/dev/null | awk '$4 ~ /^192\.168\.1\./ {print $2; exit}')"
   [ -n "$i" ] && { echo "$i"; return; }
+  for i in $(list_wired); do
+    [ "$(cat /sys/class/net/$i/carrier 2>/dev/null)" = "1" ] && { echo "$i"; return; }
+  done
+  i="$(list_wired | head -1)"
+  [ -n "$i" ] && { echo "$i"; return; }
   i="$(ip route show default 2>/dev/null | awk '{print $5; exit}')"
   [ -n "$i" ] && { echo "$i"; return; }
-  for i in $(ls /sys/class/net 2>/dev/null); do
-    case "$i" in lo|docker*|virbr*|veth*|br-*|wl*|Meta) continue ;; esac
-    [ -e "/sys/class/net/$i/device" ] && { echo "$i"; return; }
-  done
 }
 
 say()  { printf "\n\033[1m== %s ==\033[0m\n" "$1"; }
@@ -228,9 +239,23 @@ EOF
 
 # ---------- 各子命令 ----------
 cmd_net() {
-  local iface="${1:-}"; [ -n "$iface" ] || iface="$(detect_iface)"
+  local iface="${1:-}"; local auto=0
+  [ -n "$iface" ] || { iface="$(detect_iface)"; auto=1; }
   local ip="${2:-$HOST_IP}"
   [ -n "${iface:-}" ] || { err "没探测到网卡，请指定：./launch.sh net <网卡> <主机IP>"; return 1; }
+  # 防呆：自动探测到了无线网卡就停下（雷达是 100BASE-TX，必须走有线口）
+  case "$iface" in
+    wl*|Meta)
+      if [ "$auto" = 1 ]; then
+        err "自动探测到的是 $iface（无线/代理网卡），雷达必须接有线口"
+        info "请显式指定网卡：sudo ./launch.sh net <有线网卡> $ip"
+        info "本机有线网卡候选：$(list_wired | tr '\n' ' ')"
+        info "接线后插着网线的那块会自动优先；也可以 JT128_IFACE=<网卡> 指定"
+        return 1
+      fi
+      warn "你显式指定了 $iface（非有线网卡），确认这是对的再继续"
+      ;;
+  esac
   info "网卡=$iface  主机IP=$ip"
   exec "$JT128_DIR/setup_host.sh" "$iface" "$ip"
 }
