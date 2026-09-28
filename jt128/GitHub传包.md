@@ -26,7 +26,7 @@ git push -u origin main
 
 **认证不用 PAT**：本机 `~/.ssh/id_ed25519` 已经加到 GitHub 了（`ssh -T git@github.com` 会回 `Hi Logic-Wzj!`），所以用 `git@github.com:` 的 SSH 地址免密。只有走 HTTPS 地址（`https://...`）时才需要 PAT（Settings → Developer settings → Personal access tokens → 勾 `repo` → 生成后当密码用，只显示一次）。
 
-> 本机到 GitHub 的连通性时不时抽风（校园网直连会被掐、Clash 时好时坏）：`curl https://github.com` 卡住或 TLS 被重置就换个时间/网络重试，SSH 通道相对稳。`git push` 卡住先 Ctrl-C，别反复重试到超时。
+> 本机到 GitHub 的连接会随 **Clash 换节点**中断（正在跑的 push/clone 会立刻报 TLS 重置或超时；校园网直连基本不通）。碰到就等 10 秒、确认节点稳定后重试，SSH 通道相对稳；`git push` 卡住先 Ctrl-C，别反复等到超时。
 
 ### 小电脑（4 步）
 
