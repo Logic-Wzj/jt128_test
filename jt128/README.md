@@ -47,17 +47,26 @@
 
 ## 2. 主机网络（本机已就绪的脚本）
 
-> ⚠️ **先检查雷达 IP 有没有被 Clash 劫持（不用无脑放行）**
-> 本机 Clash 的 **TUN 目前是关的**（`tun.enable: false`，`enable_auto_launch: false`，只有后台 service 自启），
-> 此刻没有劫持。**只有打开 TUN 模式时**，`192.168.1.201` 才会被 fake-ip（`198.18.0.0/15` + 策略路由 table 2022）劫持，
-> 那时驱动会假装 `ptc connect success`（其实连到 Clash），UDP 点云收不到。
+> ⚠️ **先检查雷达 IP 有没有被 Clash 劫持**
+> Clash 的 TUN **开关状态会变**（2026-09-28 复查时 `tun.enable: true` 且正在劫持雷达网段），所以每次开工前都要现查，别凭记忆。
+> TUN 开着时 `192.168.1.201` 会被 fake-ip（`198.18.0.0/15` + 策略路由 table 2022）接管，
+> 驱动会假装 `ptc connect success`（其实连到 Clash），UDP 点云一个都收不到。
 >
-> 一键检查：`jt128route`（等价于 `ip route get 192.168.1.201`）
-> - ✅ `dev enp131s0 ... src 192.168.1.100` 或 `via 10.132.255.254 dev enp131s0` → 没被劫持，不用管
-> - ❌ `via 198.18.0.2 dev Meta table 2022` → 被劫持，需要放行
+> 一键检查：`ip route get 192.168.1.201`（zsh 里挂好了 `jt128route`）
+> - ✅ `dev enp131s0 ... src 192.168.1.100` 或 `via 10.132.255.254 dev enp131s0` → 没被劫持
+> - ❌ `via 198.18.0.2 dev Meta table 2022` → **被劫持**，必须处理（`./launch.sh radar` 会直接拒绝启动）
 >
-> 放行要写在**持久位置**：Clash Verge 的「全局扩展配置(Merge)」里加 `tun.route-exclude-address: [192.168.1.0/24]`，
-> 或 GUI 的 TUN 设置里加。**直接改 `clash-verge.yaml` 没用**（Verge 每次生成配置会覆盖，目录里那些 `*.bak-regen-*` 就是证据）。
+> 两种处理方式：
+> 1. **临时**：Clash Verge 里关掉 TUN 模式（测雷达期间别开）
+> 2. **持久**（推荐）：编辑 `~/.local/share/io.github.clash-verge-rev.clash-verge-rev/profiles/Merge.yaml`，追加
+>    ```yaml
+>    tun:
+>      route-exclude-address:
+>        - 192.168.1.0/24
+>    ```
+>    然后在 Clash Verge 里重新应用配置。
+>
+> **直接改 `clash-verge.yaml` 没用**（Verge 每次生成配置会覆盖，目录里那些 `*.bak-regen-*` 就是证据）。
 > 详见 `接上雷达后.md` 第①节。
 
 ```bash
