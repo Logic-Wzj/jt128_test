@@ -37,12 +37,28 @@ bash "$JT128_SRC/port/deps_check.sh" || warn "自检有失败项，编译可能�
 
 say "2/6 安装脚本到 $DEST_JT128"
 if [ -d "$DEST_JT128" ]; then
-  warn "$DEST_JT128 已存在，跳过（要覆盖就自己删掉再跑）"
+  # 已存在：更新它（这是"安装副本"，重复部署就是刷新它；要改请改源仓库/移植包）
+  rm -rf "$DEST_JT128.bak" 2>/dev/null
+  cp -r "$DEST_JT128" "$DEST_JT128.bak" 2>/dev/null
+  upd=0
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete --exclude='app/' --exclude='__pycache__/' --exclude='*.pyc' \
+          "$JT128_SRC/" "$DEST_JT128/" && upd=1
+  else
+    cp -rf "$JT128_SRC"/. "$DEST_JT128"/ && upd=1
+  fi
+  if [ "$upd" = 1 ]; then
+    echo "已更新（脚本刷新为当前版本，旧版本备份在 $DEST_JT128.bak）"
+  else
+    warn "更新失败，保留原样（可手动删掉 $DEST_JT128 再跑一次）"
+  fi
 else
   cp -r "$JT128_SRC" "$DEST_JT128"
-  chmod +x "$DEST_JT128"/*.sh "$DEST_JT128"/*.py "$DEST_JT128"/port/*.sh 2>/dev/null
   echo "已安装"
 fi
+# 可执行位：ZIP 下载/解压往往丢失，统一补上（按 bash 调用也不需要，但省得踩）
+chmod +x "$DEST_JT128"/*.sh "$DEST_JT128"/*.py "$DEST_JT128"/port/*.sh \
+         "$DEST_JT128"/port/*.py "$DEST_JT128"/sim/*.py 2>/dev/null
 
 say "3/6 安装驱动源码到 $DEST_DRIVER"
 
