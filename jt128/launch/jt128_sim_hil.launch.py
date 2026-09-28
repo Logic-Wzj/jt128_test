@@ -44,8 +44,13 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    default_config = os.path.join(
-        get_package_share_directory('hesai_ros_driver'), 'config', 'config.yaml')
+    # start_driver:=false（只起中继）时并不需要禾赛包，所以解析失败不能让它整个启动失败
+    try:
+        default_config = os.path.join(
+            get_package_share_directory('hesai_ros_driver'), 'config', 'config.yaml')
+    except Exception:
+        default_config = os.path.join(
+            os.path.expanduser('~'), 'HesaiLidar_ROS_2.0', 'config', 'config.yaml')
     # 按启动文件自身位置推导目录（不写死 ~/jt128，整个目录拷到别处也能用）
     pkg_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     fake_py = os.path.join(pkg_root, 'sim', 'jt128_fake_cloud.py')
