@@ -1,0 +1,10 @@
+# git 提交时忽略的东西
+__pycache__/
+*.pyc
+
+# 上位机 LidarUtilities（100MB，x86-64 二进制，不适合进 git）
+app/
+
+# 运行产物
+*.npy
+*.log

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>jt128_livox_compat</name>
+  <version>0.1.0</version>
+  <description>
+    JT128 到 Livox Mid-360 的点云格式适配层。
+    禾赛驱动输出字段：x,y,z,intensity(float32) 加 ring(uint16) 加 timestamp(float64, 纳秒)；
+    而 small_point_lio 的 livox_pointcloud2 适配器按字段名读取 x,y,z 加 tag(uint8) 加 timestamp(float64)，
+    并且只接受 tag 低 6 位为 0 的点。本节点补齐 tag(=0) 与 line(=ring 低字节)，
+    把 frame 改成 livox_frame、话题发到 /livox/lidar，并转发 IMU 到 /livox/imu，
+    使 JT128 可以顶替 Mid-360，而 cod 仓库无需改动。
+  </description>
+  <maintainer email="wzj@example.com">wzj</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

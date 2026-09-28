@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>jt128_sim_relay</name>
+  <version>0.1.0</version>
+  <description>
+    JT128 真实雷达 -> Gazebo 仿真 HIL 中继（C++ 实现）。
+    改写 frame_id 为仿真里存在的雷达帧、把时间戳改成仿真时钟，再转发给仿真 nav2 的 costmap。
+    为什么不用 Python：rclpy 反序列化 1.8 MB 的 uint8[] 是逐元素的，实测只能吃 1~2 帧/s，
+    真雷达单回波就是 10 Hz × 1.84 MB，Python 中继直接堵死；C++ 无此问题。
+  </description>
+  <maintainer email="wzj@example.com">wzj</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
