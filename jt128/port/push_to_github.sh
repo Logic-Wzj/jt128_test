@@ -186,6 +186,11 @@ EOF
 # ---------- git init + commit ----------
 say "提交到本地 git"
 if [ "$WITH_DRIVER" = 1 ]; then DRIVER_TAG="（含驱动源码）"; else DRIVER_TAG="（不含驱动源码，部署时自动克隆）"; fi
+# 提交署名：环境变量 → 你的全局 git 配置 → 兜底 jt128
+AUTHOR_NAME="${GIT_AUTHOR_NAME:-$(git config --get user.name 2>/dev/null)}"
+AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-$(git config --get user.email 2>/dev/null)}"
+AUTHOR_NAME="${AUTHOR_NAME:-jt128}"; AUTHOR_EMAIL="${AUTHOR_EMAIL:-jt128@localhost}"
+info "提交署名：$AUTHOR_NAME <$AUTHOR_EMAIL>（可用 GIT_AUTHOR_NAME/GIT_AUTHOR_EMAIL 覆盖）"
 (
   cd "$OUT_DIR" || exit 1
   git init -q -b "$BRANCH" 2>/dev/null || { git init -q && git checkout -q -b "$BRANCH"; }
@@ -193,7 +198,7 @@ if [ "$WITH_DRIVER" = 1 ]; then DRIVER_TAG="（含驱动源码）"; else DRIVER_
   if git diff --cached --quiet; then
     echo "内容与上次一致，无需新提交"
   else
-    git -c user.name="${GIT_AUTHOR_NAME:-jt128}" -c user.email="${GIT_AUTHOR_EMAIL:-jt128@localhost}" \
+    git -c user.name="$AUTHOR_NAME" -c user.email="$AUTHOR_EMAIL" \
         commit -q -m "JT128 现场测试工具包：一键入口 + 裸包自检 + 内存监控 + 验收清单 + 移植部署${DRIVER_TAG}" \
       || die "git 提交失败"
   fi
