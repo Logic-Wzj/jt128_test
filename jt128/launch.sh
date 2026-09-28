@@ -269,6 +269,14 @@ cmd_driver() {
   fixpaths
   source_ros || return 1
   source_ws "$HESAI_WS" || { err "找不到 $HESAI_WS/install/setup.bash（先编译驱动）"; return 1; }
+  # 双回波出厂设置下一帧约 6 MB（230400 点 × 26 B）。Fast DDS 默认共享内存段只有几百 KB，
+  # 装不下就会退化成 UDP 分片 → 订阅端只见 3~4 帧/s（本机实测 3.5 Hz）。必须注入大消息 profile。
+  if [ -f "$DDS_PROFILE" ]; then
+    export FASTRTPS_DEFAULT_PROFILES_FILE="$DDS_PROFILE"
+    info "DDS 大消息 profile：$DDS_PROFILE（点云才能跑满 10 Hz）"
+  else
+    err "缺 $DDS_PROFILE —— 大点云会掉到 3~4 Hz（检查是否在 jt128/ 目录结构下运行）"
+  fi
   if [ -f "$HESAI_REPO/launch/jt128_test.py" ]; then
     exec ros2 launch "$HESAI_REPO/launch/jt128_test.py" "$@"
   fi

@@ -100,6 +100,45 @@ python3 ~/jt128/jt128_check.py --iface enp131s0 --seconds 20
 
 （`jt128_check.py --selftest` 可无雷达自检解析逻辑，已通过。）
 
+## 3.1 点云内容深检（驱动起来之后）
+
+```bash
+source ~/hesai_ws/install/setup.bash
+export FASTRTPS_DEFAULT_PROFILES_FILE=~/jt128/sim/fastdds_large_msg.xml   # 关键，见下面的警告
+python3 ~/jt128/pc_stats.py --topic /lidar_points
+```
+
+2026-09-28 实机实测（JT128 网线直连桌面机 `enp131s0`，出厂双回波）：
+
+| 项 | 实测值 |
+|---|---|
+| 话题 / 帧 | `/lidar_points`，230400×1，point_step 26，**5.99 MB/帧**，9.97 Hz |
+| 字段 | `x@0 y@4 z@8 intensity@12(float32) ring@16(uint16) timestamp@18(float64)` |
+| 有效点 | 175940（全零 54460 = 无回波，机械式正常） |
+| 距离 | 中位 2.81 m，p99 7.08 m，max 29.13 m（室内场景） |
+| 通道 | ring 0~127，**128 条全到位** |
+| 反射率 | 0~255，均值 26.6 |
+| 逐点时间戳 | 单位是**秒**，一帧跨度 100.2 ms，递增比例 1.00 |
+| 丢包 | 0（累计 29 万包） |
+| 资源 | RSS 222 MB，CPU ≈20%（单核） |
+
+> ⚠️ **大点云必须开 64 MB 共享内存段（否则只有 3~4 Hz）**
+> 双回波一帧 230400 点 × 26 B ≈ **5.99 MB**。Fast DDS 默认共享内存段只有几百 KB，装不下就退化成 UDP 分片，
+> 订阅端只看到 **3~4 帧/s**（本机实测 3.5 Hz），`ros2 topic echo` / rviz 还会表现成"话题好像没数据"。
+> **发布端和订阅端都要带**：
+> ```bash
+> export FASTRTPS_DEFAULT_PROFILES_FILE=~/jt128/sim/fastdds_large_msg.xml
+> ```
+> `launch.sh driver`、`launch.sh verify`、`launch/jt128_test.py` 已自动注入；自己手敲 `ros2 run` 时别忘。
+> 确认生效：`ls -la /dev/shm | grep fastrtps` 应看到 ≈ 64 MB（67133984 字节）的段。
+
+> ⚠️ 点云 `header.stamp` 是**雷达内部计时**（上电累计秒数，例如 1029.9），不是 UTC 日期；
+> 接导航栈前要确认时间源（驱动 `use_timestamp_type` 参数，或外接 GNSS/PPS）。
+
+> 话题名：纯雷达测试是 `/lidar_points`；接 cod 导航栈时用
+> `ros2 launch hesai_ros_driver jt128_test.py point_cloud_topic:=/livox/lidar` 伪装成 Livox。
+> `launch.sh verify` 会自动探测实际话题，不用手动配。
+
 ## 4. 上位机 LidarUtilities（你下载的那个 .out —— 是工具，不是驱动）
 
 它是 PyInstaller + PySide6 打包的 ELF（Python 3.10 / Qt6，内含 pyqtgraph + OpenGL），本机 `libxcb-cursor0` 等依赖齐全，能跑。先从 NTFS 盘拷到本地再执行：

@@ -31,18 +31,51 @@ import time
 CLK_TCK = os.sysconf("SC_CLK_TCK")
 
 
+def _own_pids():
+    """自己 + 所有祖先进程。避免把 memwatch 本身、或调用它的 shell（命令行里往往含关键字）
+    当成观测目标 —— 这会让读数看起来"只有 11 MB"之类，结论完全错。"""
+    pids, pid = set(), os.getpid()
+    for _ in range(16):
+        if pid <= 1:
+            break
+        pids.add(pid)
+        try:
+            stat = open("/proc/%d/stat" % pid).read()
+            pid = int(stat.rsplit(")", 1)[1].split()[1])
+        except (OSError, IndexError, ValueError):
+            break
+    return pids
+
+
 def find_procs(name):
+    """按关键字匹配进程，返回 [(pid, rss_kb, comm, cmd)]，最可能是目标的排在最后。
+
+    排序依据：可执行名(comm)命中优先于仅命令行命中；同档按 RSS 从大到小。
+    """
+    kw = name.lower()
+    skip = _own_pids()
     hits = []
     for pid in os.listdir("/proc"):
-        if not pid.isdigit():
+        if not pid.isdigit() or int(pid) in skip:
             continue
         try:
-            cmd = open("/proc/%s/cmdline" % pid, "rb").read().replace(b"\0", b" ").decode(errors="replace")
-            if name.lower() in cmd.lower():
-                hits.append((int(pid), cmd.strip()[:90]))
+            cmd = open("/proc/%s/cmdline" % pid, "rb").read().replace(b"\0", b" ").decode(errors="replace").strip()
+            comm = open("/proc/%s/comm" % pid).read().strip()
         except OSError:
             continue
-    return sorted(hits)
+        if kw not in cmd.lower() and kw not in comm.lower():
+            continue
+        rss = 0
+        try:
+            for line in open("/proc/%s/status" % pid):
+                if line.startswith("VmRSS:"):
+                    rss = int(line.split()[1])
+                    break
+        except OSError:
+            pass
+        hits.append((int(pid), rss, comm, cmd[:90], kw in comm.lower()))
+    hits.sort(key=lambda h: (h[4], h[1]))
+    return [(pid, rss, comm, cmd) for pid, rss, comm, cmd, _ in hits]
 
 
 def proc_snapshot(pid):
@@ -131,8 +164,8 @@ def main():
             hits = find_procs(kw)
             if hits:
                 print("[%s]" % kw)
-                for pid, cmd in hits:
-                    print("   %6d  %s" % (pid, cmd))
+                for pid, rss, comm, cmd in hits:
+                    print("   %6d  %6.1f MB  %-28s %s" % (pid, rss / 1024.0, comm, cmd))
         return 0
 
     pid = args.pid
@@ -144,8 +177,12 @@ def main():
         if not hits:
             print("没找到匹配 '%s' 的进程；用 --list 看当前候选" % args.name)
             return 1
-        pid, cmd = hits[-1]
-        print("观测进程: %d  %s" % (pid, cmd))
+        if len(hits) > 1:
+            print("匹配到 %d 个进程（已排除 memwatch 自身及父进程）：" % len(hits))
+            for p, r, c, cm in hits:
+                print("   %6d  %6.1f MB  %-24s %s" % (p, r / 1024.0, c, cm))
+        pid, rss, comm, cmd = hits[-1]
+        print("观测进程: %d  %s  (RSS %.1f MB)  %s" % (pid, comm, rss / 1024.0, cmd))
     else:
         print("观测进程: %d" % pid)
 

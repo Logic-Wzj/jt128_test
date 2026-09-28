@@ -19,21 +19,21 @@ WS_COD="${WS_COD:-$HOME/cod_-rm2026_-navigation}"
 
 if [ "$MODE" = "driver" ]; then
   # 「只接雷达测雷达」模式：只查驱动的点云，不查滤波节点与 TF
-  LIDAR_TOPIC="${LIDAR_TOPIC:-/lidar_points}"
+  LIDAR_TOPIC="${LIDAR_TOPIC:-}"
   FILTERED_TOPIC=""
   FRAME="${FRAME:-front_jt128}"
   PROCS_REQUIRED="${PROCS_REQUIRED:-hesai_ros_driver_node}"
   PROCS_OPTIONAL="${PROCS_OPTIONAL-}"
   TITLE="纯雷达（只起禾赛驱动，不接机器人/仿真）"
 elif [ "$MODE" = "sim" ]; then
-  LIDAR_TOPIC="${LIDAR_TOPIC:-/lidar_points}"
+  LIDAR_TOPIC="${LIDAR_TOPIC:-}"
   FILTERED_TOPIC="${FILTERED_TOPIC:-/jt128/points}"
   FRAME="${FRAME:-front_mid360}"
   PROCS_REQUIRED="${PROCS_REQUIRED:-jt128_sim_relay}"
   PROCS_OPTIONAL="${PROCS_OPTIONAL-hesai_ros_driver_node}"
   TITLE="仿真 HIL（真实雷达 -> 仿真 costmap）"
 else
-  LIDAR_TOPIC="${LIDAR_TOPIC:-/lidar_points}"
+  LIDAR_TOPIC="${LIDAR_TOPIC:-}"
   FILTERED_TOPIC="${FILTERED_TOPIC:-/livox/lidar_filtered}"
   FRAME="${FRAME:-front_jt128}"
   PROCS_REQUIRED="${PROCS_REQUIRED:-hesai_ros_driver_node lidar_filter_node}"
@@ -53,6 +53,20 @@ source "$WS_HESAI/install/setup.bash" 2>/dev/null || { echo "找不到 $WS_HESAI
 # shellcheck disable=SC1091
 source "$WS_COD/install/setup.bash" 2>/dev/null || echo "警告：没找到 cod 工作区 install/setup.bash"
 set -u
+
+# 大点云（双回波 ~6 MB/帧）必须走 64 MB 共享内存段，订阅端不带这个环境变量就只有 3~4 Hz
+JT128_DDS_PROFILE="${JT128_DDS_PROFILE:-$HOME/jt128/sim/fastdds_large_msg.xml}"
+if [ -f "$JT128_DDS_PROFILE" ]; then
+  export FASTRTPS_DEFAULT_PROFILES_FILE="$JT128_DDS_PROFILE"
+fi
+
+# 点云话题：没显式指定就按实际情况探测（纯雷达是 /lidar_points，接 cod 时会 remap 成 /livox/lidar）
+if [ -z "${LIDAR_TOPIC:-}" ]; then
+  for t in /lidar_points /livox/lidar /jt128/points; do
+    if ros2 topic list 2>/dev/null | grep -qx "$t"; then LIDAR_TOPIC="$t"; break; fi
+  done
+fi
+LIDAR_TOPIC="${LIDAR_TOPIC:-/lidar_points}"
 
 OK=0; FAIL=0; WARN=0
 ok()   { printf "  \033[32m✅ %s\033[0m\n" "$1"; OK=$((OK+1)); }
@@ -87,6 +101,7 @@ done
 
 # ---------- 2. 话题 ----------
 echo "[2] 话题"
+info "当前用的点云话题：$LIDAR_TOPIC（可用 LIDAR_TOPIC=... 覆盖）"
 for t in "$LIDAR_TOPIC" $FILTERED_TOPIC; do
   if ros2 topic list 2>/dev/null | grep -qx "$t"; then
     pub=$(timeout 5 ros2 topic info "$t" 2>/dev/null | awk -F': ' '/Publisher count/{print $2}')
