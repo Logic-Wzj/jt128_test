@@ -219,6 +219,7 @@ JT128 一键脚本（bash）
     ./launch.sh mem                   内存/CPU/FD/内核缓冲（默认 600 秒）
     ./launch.sh gui                   上位机 LidarUtilities（改回波模式/FOV 等）
     ./launch.sh compat                真机接入：把 JT128 适配成 Mid-360（供 cod 导航栈使用）
+    ./launch.sh compatcheck           适配层回归测试（合成点云，不需要雷达）
 
   换机器/首次：
     ./launch.sh fixpaths              修复 config.yaml 里的绝对路径（换机必做）
@@ -294,6 +295,11 @@ cmd_compat() {
   info "适配层：JT128 -> /livox/lidar + /livox/imu + base_link->livox_frame"
   info "起完再启动 cod 的 singlenav_launch.py（cpp_lidar_filter / small_point_lio / nav2 照旧）"
   exec ros2 launch jt128_livox_compat compat.launch.py "$@"
+}
+
+cmd_compatcheck() {
+  # 硬件无关回归测试：合成禾赛布局点云 -> 适配层 -> 校验字段与时间戳单位
+  exec bash "$JT128_DIR/compat_selftest.sh" "$@"
 }
 
 cmd_radar() {
@@ -433,6 +439,7 @@ case "${1:-status}" in
   gui)            cmd_gui ;;
   rviz)           shift; cmd_rviz "$@" ;;
   compat)         shift; cmd_compat "$@" ;;
+  compatcheck)    cmd_compatcheck ;;
   sim)            shift; cmd_sim "$@" ;;
   simstock)       shift; cmd_simstock "$@" ;;
   hil)            shift; cmd_hil "$@" ;;

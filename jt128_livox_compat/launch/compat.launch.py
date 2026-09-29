@@ -62,6 +62,9 @@ def generate_launch_description():
         DeclareLaunchArgument('yaw', default_value='0.0'),
         # 其它
         DeclareLaunchArgument('stamp_offset_ms', default_value='0'),
+        DeclareLaunchArgument('timestamp_scale', default_value='1e9',
+                              description='逐点 timestamp 换算系数：禾赛驱动是秒，'
+                                          'small_point_lio 按纳秒解释（×1e-9），故默认 1e9；设 1 不换算'),
         DeclareLaunchArgument('qos_reliable', default_value='false'),
         DeclareLaunchArgument('start_driver', default_value='false'),
         DeclareLaunchArgument('config_path', default_value=default_config),
@@ -80,6 +83,7 @@ def generate_launch_description():
             'in_imu_topic': LaunchConfiguration('in_imu_topic'),
             'out_imu_topic': LaunchConfiguration('out_imu_topic'),
             'stamp_offset_ms': LaunchConfiguration('stamp_offset_ms'),
+            'timestamp_scale': LaunchConfiguration('timestamp_scale'),
             'qos_reliable': LaunchConfiguration('qos_reliable'),
         }],
     )
