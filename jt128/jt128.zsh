@@ -25,6 +25,8 @@ else
   export JT128_DIR="${JT128_DIR:-$HOME/jt128}"
 fi
 unset _jt128_self _jt128_dir
+# 文档目录：2026-09-28 起所有 .md 从工具包里搬到同级目录（脚本不依赖文档，搬不搬都能跑）
+export JT128_DOC_DIR="${JT128_DOC_DIR:-$HOME/jt128_文档}"
 export HESAI_WS="${HESAI_WS:-$HOME/hesai_ws}"
 export COD_WS="${COD_WS:-$HOME/cod_-rm2026_-navigation}"
 export HESAI_SRC="${HESAI_SRC:-$HOME/HesaiLidar_ROS_2.0}"
@@ -154,7 +156,7 @@ function jt128route() {
     echo "  ❌ 被 Clash 劫持了 —— 打开 TUN 模式时才会这样"
     echo "     放行要写在「全局扩展配置(Merge)」的 tun.route-exclude-address 里才持久；"
     echo "     改 clash-verge.yaml 会被 Verge 重新生成覆盖。"
-    echo "     参考：~/jt128/接上雷达后.md 第①节"
+    echo "     参考：$JT128_DOC_DIR/接上雷达后.md 第①节"
     return 1
   elif echo "$out" | grep -q "dev $iface"; then
     echo "  ✅ 没被劫持（走本地网卡）"
