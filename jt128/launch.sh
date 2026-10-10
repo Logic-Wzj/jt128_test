@@ -221,14 +221,6 @@ JT128 一键脚本（bash）
     ./launch.sh compat                真机接入：把 JT128 适配成 Mid-360（供 cod 导航栈使用）
     ./launch.sh compatcheck           适配层回归测试（合成点云，不需要雷达）
 
-  换重定位算法（MID360 / fzsd 实车栈，GICP ↔ NDT 对比）：
-    ./launch.sh loc                   起 NDT 重定位（点云中继 + NDT 节点，发 map->odom）
-    ./launch.sh loceval gicp 120      跑一段路，采集打分（标签 gicp，120 秒）
-    ./launch.sh loceval ndt 120       换 NDT 再跑同一段路
-    ./launch.sh loccmp ~/jt128_loc_eval_gicp_*.csv ~/jt128_loc_eval_ndt_*.csv
-                                      两份结果并排对比
-    环境变量：FZSD_WS / HDL_WS / FZSD_PCD / FZSD_MAP（先验地图 .pcd）
-
   换机器/首次：
     ./launch.sh fixpaths              修复 config.yaml 里的绝对路径（换机必做）
     ./launch.sh status                环境总览（同直接运行本脚本）
@@ -406,65 +398,6 @@ cmd_hil() {
     exec ros2 launch "$JT128_DIR/launch/jt128_sim_hil.launch.py" "$@"
 }
 
-# ---------- fzsd 实车栈：换重定位算法做 A/B（换 MID360 那套用的） ----------
-FZSD_WS="${FZSD_WS:-$HOME/fzsd2025}"
-HDL_WS="${HDL_WS:-$HOME/hdl_ws}"
-FZSD_PCD="${FZSD_PCD:-$FZSD_WS/install/pb2025_nav_bringup/share/pb2025_nav_bringup/pcd/reality}"
-LOC_DIR="$JT128_DIR/fzsd_loc"
-
-# 检查 NDT 那套是否装好（源码 + 编译产物 + 先验地图）
-loc_precheck() {
-  local ok=1
-  [ -f "$HDL_WS/install/setup.bash" ] || { err "没编译 NDT：找不到 $HDL_WS/install/setup.bash"; ok=0; }
-  [ -x "$HDL_WS/install/pcl_localization_ros2/lib/pcl_localization_ros2/pcl_localization_node" ] \
-    || { err "没编译出 pcl_localization_node（在 $HDL_WS 里 colcon build）"; ok=0; }
-  [ -f "$LOC_DIR/pcl_loc_mid360.yaml" ] || { err "缺少 $LOC_DIR/pcl_loc_mid360.yaml"; ok=0; }
-  [ "$ok" = 1 ] || { info "补救：cd $HDL_WS && colcon build --packages-select ndt_omp_ros2 pcl_localization_ros2 --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo"; return 1; }
-  return 0
-}
-
-# 先验地图路径：默认取 FZSD_PCD 下第一个 .pcd，可用 FZSD_MAP 覆盖
-loc_map_file() {
-  if [ -n "${FZSD_MAP:-}" ]; then echo "$FZSD_MAP"; return; fi
-  local f
-  f="$(ls -1 "$FZSD_PCD"/*.pcd 2>/dev/null | head -1)"
-  [ -n "$f" ] && echo "$f"
-}
-
-# ./launch.sh loc [参数...]  —— 起 NDT 重定位（点云中继 + NDT 节点）
-cmd_loc() {
-  loc_precheck || return 1
-  source_ros || return 1
-  source_ws "$HDL_WS" || { err "source $HDL_WS/install/setup.bash 失败"; return 1; }
-  local map; map="$(loc_map_file)"
-  [ -n "$map" ] || { err "找不到先验地图 PCD（用 FZSD_MAP=/path/xx.pcd 指定）"; return 1; }
-  say "起 NDT 重定位（hdl_localization 路线）"
-  info "先验地图：$map"
-  info "参数文件：$LOC_DIR/pcl_loc_mid360.yaml"
-  info "起完用 RViz 的 2D Pose Estimate 给初始位姿（地图系）——注意先确认点云已经在流"
-  # 参数文件里的 map_path 换成实际地图（不写死机器上的路径）
-  local params=/tmp/jt128_loc_params_$$.yaml
-  sed "s|^\( *map_path: \).*|\1\"$map\"|" "$LOC_DIR/pcl_loc_mid360.yaml" > "$params"
-  echo "$params" > /tmp/jt128_loc_params_path
-  FASTRTPS_DEFAULT_PROFILES_FILE="$DDS_PROFILE" \
-    exec ros2 launch "$LOC_DIR/hdl_loc.launch.py" params_file:="$params" "$@"
-}
-
-# ./launch.sh loceval <标签> [秒数]  —— 采集 map->odom 行为并打分
-cmd_loceval() {
-  local tag="${1:-run}"; local dur="${2:-120}"
-  source_ros || return 1
-  say "采集重定位表现 [$tag] ${dur}s"
-  info "现在去跑一段路（同一段路、同样的开法，两个方案才可比）"
-  exec python3 "$JT128_DIR/loc_eval.py" --tag "$tag" --duration "$dur"
-}
-
-# ./launch.sh loccmp <csv1> <csv2> ...  —— 对比两份采集结果
-cmd_loccmp() {
-  [ "$#" -ge 2 ] || { err "用法：./launch.sh loccmp <a.csv> <b.csv>"; return 1; }
-  exec python3 "$JT128_DIR/loc_eval.py" --compare "$@"
-}
-
 cmd_ps() {
   say "JT128 / 仿真 相关进程"
   ps -eo pid,pgid,etime,cmd 2>/dev/null \
@@ -507,9 +440,6 @@ case "${1:-status}" in
   rviz)           shift; cmd_rviz "$@" ;;
   compat)         shift; cmd_compat "$@" ;;
   compatcheck)    cmd_compatcheck ;;
-  loc)            shift; cmd_loc "$@" ;;
-  loceval)        shift; cmd_loceval "$@" ;;
-  loccmp)         shift; cmd_loccmp "$@" ;;
   sim)            shift; cmd_sim "$@" ;;
   simstock)       shift; cmd_simstock "$@" ;;
   hil)            shift; cmd_hil "$@" ;;
